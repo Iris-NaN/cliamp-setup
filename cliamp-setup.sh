@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# cliamp 一键配置脚本
+# cliamp 一键配置脚本（聚焦 Arch Linux）
 #
-# 适用于 Arch / Debian(Ubuntu) / Fedora / macOS，把 cliamp 终端音乐播放器
-# 安装并配置为「开箱即用」：本地播放、网易云（可选）、媒体键控制（可选）、
-# 国内 CDN 加速（可选，仅对中国大陆用户有意义）。
+# 把 cliamp 终端音乐播放器安装并配置为「开箱即用」：本地播放、网易云
+#（可选）、媒体键控制（可选）、国内 CDN 加速（可选，仅对中国大陆用户有意义）。
 #
-# 默认只做「通用」部分（安装 + 基础配置），所有地域相关 / 账号相关的
-# 增强功能都通过开关开启，保证脚本对全球用户都可移植。
+# 默认只做「基础」部分（安装 + 基础配置），所有地域相关 / 账号相关的增强
+# 功能都通过开关开启，避免对不需要的用户产生副作用。
 #
 # 中国大陆用户请直接用预设：
 #   ./cliamp-setup.sh --cn
@@ -22,7 +21,7 @@
 #   HIR_RES=1           启用 hi-res 输出（96kHz / 32bit 浮点）
 #   PLAYERCTL=1         安装 playerctl，支持系统媒体键控制
 #   PROVIDER=netease    启动默认进入的源
-#   MIRROR=ghfast.top   下载镜像域名（留空则直连 GitHub）
+#   MIRROR=ghfast.top   下载镜像域名（留空 "" 则直连 GitHub）
 #
 set -euo pipefail
 
@@ -55,7 +54,6 @@ warn()  { echo -e "\033[33m[警告]\033[0m $*"; }
 ok()    { echo -e "\033[32m[完成]\033[0m $*"; }
 die()   { echo -e "\033[31m[错误]\033[0m $*" >&2; exit 1; }
 
-# 带镜像前缀的 GitHub 下载地址
 gh_url() {
   local path="$1"
   if [[ -n "$MIRROR" ]]; then
@@ -67,29 +65,17 @@ gh_url() {
 
 need_sudo() {
   if [[ "$(id -u)" -eq 0 ]]; then return; fi
-  if ! command -v sudo >/dev/null 2>&1; then
-    die "需要 root 权限，请安装 sudo 或以 root 运行"
-  fi
+  command -v sudo >/dev/null 2>&1 || die "需要 root 权限，请安装 sudo 或以 root 运行"
   sudo -v || die "获取 sudo 权限失败"
 }
 
-# ===================== 检测系统 =====================
+# ===================== 检测系统（聚焦 Arch / Linux） =====================
 OS="$(uname -s)"
-case "$OS" in
-  Linux)   ;;
-  Darwin)  ;;
-  *) die "不支持的操作系统: $OS" ;;
-esac
-
+[[ "$OS" == "Linux" ]] || die "本脚本聚焦 Linux/Arch，当前系统: $OS"
 DISTRO="unknown"
-if [[ "$OS" == "Linux" ]]; then
-  if [[ -f /etc/os-release ]]; then
-    . /etc/os-release
-    DISTRO="${ID:-unknown}"
-  fi
-fi
-
-info "检测到系统: $OS / $DISTRO"
+[[ -f /etc/os-release ]] && . /etc/os-release && DISTRO="${ID:-unknown}"
+[[ "$DISTRO" == "arch" || "$DISTRO" == "archlinux" || "$DISTRO" == "manjaro" ]] \
+  || warn "当前发行版 $DISTRO 非 Arch，将尝试下载预编译二进制兜底"
 
 # ===================== 安装 cliamp =====================
 install_cliamp() {
@@ -97,109 +83,65 @@ install_cliamp() {
     info "cliamp 已安装: $(cliamp --version 2>/dev/null)"
     return
   fi
-
-  case "$DISTRO" in
-    arch|archlinux|manjaro)
-      if command -v yay >/dev/null 2>&1; then
-        need_sudo
-        info "通过 AUR 安装 cliamp-bin（预编译，自带编解码库）"
-        yay -S --needed --noconfirm cliamp-bin
-      else
-        warn "未找到 yay，尝试直接下载预编译二进制"
-        install_cliamp_bin
-      fi
-      ;;
-    debian|ubuntu|linuxmint|fedora|rhel|centos)
-      install_cliamp_bin
-      ;;
-    *)
-      if [[ "$OS" == "Darwin" ]]; then
-        if command -v brew >/dev/null 2>&1; then
-          info "通过 Homebrew 安装"
-          brew install bjarneo/cliamp/cliamp
-        else
-          install_cliamp_bin
-        fi
-      else
-        install_cliamp_bin
-      fi
-      ;;
-  esac
-}
-
-install_cliamp_bin() {
-  need_sudo
-  [[ -z "$CLIAMP_VER" ]] && CLIAMP_VER="$(curl -fsSL "$(gh_url bjarneo/cliamp/releases/latest)" | grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')"
-  [[ -z "$CLIAMP_VER" ]] && die "无法获取 cliamp 最新版本"
-  info "安装 cliamp v$CLIAMP_VER"
-  local bin="cliamp-linux-amd64"
-  [[ "$(uname -m)" == "aarch64" ]] && bin="cliamp-linux-arm64"
-  local url="$(gh_url "bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}")"
-  curl -fL --retry 3 -o /tmp/cliamp.tmp "$url" || die "下载 cliamp 失败"
-  sudo install -m 755 /tmp/cliamp.tmp /usr/local/bin/cliamp
-  rm -f /tmp/cliamp.tmp
-  ok "cliamp 已装到 /usr/local/bin/cliamp"
+  if command -v yay >/dev/null 2>&1; then
+    need_sudo
+    info "通过 AUR 安装 cliamp-bin（预编译，自带编解码库）"
+    yay -S --needed --noconfirm cliamp-bin
+  else
+    need_sudo
+    [[ -z "$CLIAMP_VER" ]] && CLIAMP_VER="$(curl -fsSL "$(gh_url bjarneo/cliamp/releases/latest)" \
+      | grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')"
+    [[ -z "$CLIAMP_VER" ]] && die "无法获取 cliamp 最新版本"
+    info "安装 cliamp v$CLIAMP_VER（预编译二进制）"
+    local bin="cliamp-linux-amd64"
+    [[ "$(uname -m)" == "aarch64" ]] && bin="cliamp-linux-arm64"
+    curl -fL --retry 3 -o /tmp/cliamp.tmp "$(gh_url "bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}")" \
+      || die "下载 cliamp 失败"
+    sudo install -m 755 /tmp/cliamp.tmp /usr/local/bin/cliamp
+    rm -f /tmp/cliamp.tmp
+    ok "cliamp 已装到 /usr/local/bin/cliamp"
+  fi
 }
 
 # ===================== 依赖 =====================
 install_deps() {
-  info "安装可选依赖 ffmpeg / yt-dlp（扩展格式与在线源）"
-  case "$DISTRO" in
-    arch|archlinux|manjaro)
-      need_sudo
-      sudo pacman -S --needed --noconfirm ffmpeg yt-dlp
-      ;;
-    debian|ubuntu|linuxmint)
-      need_sudo
-      sudo apt-get update -y && sudo apt-get install -y ffmpeg yt-dlp
-      ;;
-    fedora|rhel|centos)
-      need_sudo
-      sudo dnf install -y ffmpeg yt-dlp
-      ;;
-    *)
-      if [[ "$OS" == "Darwin" ]]; then
-        command -v brew >/dev/null 2>&1 && brew install ffmpeg yt-dlp
-      else
-        warn "请手动安装 ffmpeg 与 yt-dlp"
-      fi
-      ;;
-  esac
+  info "安装可选依赖 ffmpeg / yt-dlp"
+  if command -v pacman >/dev/null 2>&1; then
+    need_sudo
+    sudo pacman -S --needed --noconfirm ffmpeg yt-dlp
+  else
+    warn "未检测到 pacman，请手动安装 ffmpeg 与 yt-dlp"
+  fi
 
   if [[ "$PLAYERCTL" == "1" ]]; then
-    info "安装 playerctl（系统媒体键控制）"
-    case "$DISTRO" in
-      arch|archlinux|manjaro) need_sudo; sudo pacman -S --needed --noconfirm playerctl ;;
-      debian|ubuntu|linuxmint) need_sudo; sudo apt-get install -y playerctl ;;
-      fedora|rhel|centos) need_sudo; sudo dnf install -y playerctl ;;
-      *) [[ "$OS" == "Darwin" ]] && command -v brew >/dev/null && brew install playerctl ;;
-    esac
+    if command -v pacman >/dev/null 2>&1; then
+      need_sudo
+      info "安装 playerctl（系统媒体键控制）"
+      sudo pacman -S --needed --noconfirm playerctl
+    else
+      warn "未检测到 pacman，请手动安装 playerctl"
+    fi
   fi
 }
 
-# ===================== 音频桥接（仅 Linux） =====================
+# ===================== 音频桥接 =====================
 check_audio() {
-  [[ "$OS" != "Linux" ]] && return
   if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
     ok "检测到 PulseAudio/PipeWire 音频服务"
-  elif command -v pipewire >/dev/null 2>&1; then
+  else
     warn "未检测到运行中的音频服务，请确认 PipeWire/PulseAudio 已启动"
   fi
-
-  case "$DISTRO" in
-    arch|archlinux|manjaro)
-      need_sudo
-      if ! pacman -Q pipewire-alsa >/dev/null 2>&1 && ! pacman -Q pulseaudio-alsa >/dev/null 2>&1; then
-        warn "建议安装 ALSA 桥接：sudo pacman -S pipewire-alsa"
-      fi
-      ;;
-  esac
+  if command -v pacman >/dev/null 2>&1; then
+    need_sudo
+    if ! pacman -Q pipewire-alsa >/dev/null 2>&1 && ! pacman -Q pulseaudio-alsa >/dev/null 2>&1; then
+      warn "建议安装 ALSA 桥接：sudo pacman -S pipewire-alsa"
+    fi
+  fi
 }
 
 # ===================== 配置文件 =====================
 write_config() {
-  local dir
-  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then dir="$XDG_CONFIG_HOME/cliamp"; else dir="$HOME/.config/cliamp"; fi
+  local dir="${XDG_CONFIG_HOME:-$HOME/.config}/cliamp"
   mkdir -p "$dir"
 
   info "写入配置: $dir/config.toml"
@@ -231,7 +173,6 @@ write_config() {
     fi
   } > "$dir/config.toml"
 
-  # 自定义电台
   if [[ ! -f "$dir/radios.toml" ]]; then
     info "写入示例电台: $dir/radios.toml"
     cat > "$dir/radios.toml" <<'EOF'
@@ -254,8 +195,7 @@ EOF
 # ===================== yt-dlp 配置 =====================
 write_ytdlp_config() {
   [[ "$CN_DNS" != "1" && "$CN_HOSTS" != "1" ]] && return
-  local dir
-  if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then dir="$XDG_CONFIG_HOME/yt-dlp"; else dir="$HOME/.config/yt-dlp"; fi
+  local dir="${XDG_CONFIG_HOME:-$HOME/.config}/yt-dlp"
   mkdir -p "$dir"
   info "写入 yt-dlp 配置: $dir/config"
   {
@@ -275,12 +215,12 @@ setup_cn_dns() {
   [[ "$CN_DNS" != "1" ]] && return
   need_sudo
   info "将系统 DNS 改为国内优先（阿里 + 腾讯，1.1.1.1 兜底）"
-  # 备份
   [[ -f /etc/resolv.conf ]] && sudo cp /etc/resolv.conf /etc/resolv.conf.bak.$(date +%s)
 
   if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
     sudo mkdir -p /etc/systemd/resolved.conf.d
-    printf '[Resolve]\nDNS=223.5.5.5 119.29.29.29 1.1.1.1\nDNSDefault=223.5.5.5\n' | sudo tee /etc/systemd/resolved.conf.d/cliamp.conf >/dev/null
+    printf '[Resolve]\nDNS=223.5.5.5 119.29.29.29 1.1.1.1\nDNSDefault=223.5.5.5\n' \
+      | sudo tee /etc/systemd/resolved.conf.d/cliamp.conf >/dev/null
     sudo systemctl restart systemd-resolved
   elif systemctl is-active --quiet NetworkManager 2>/dev/null; then
     sudo mkdir -p /etc/NetworkManager/conf.d
@@ -304,7 +244,6 @@ setup_cn_hosts() {
   done
   domains="$domains p1.music.126.net p2.music.126.net p3.music.126.net p4.music.126.net p5.music.126.net"
 
-  # 先移除旧区块
   sudo sed -i "/# === cliamp netease cdn/,/# === cliamp netease cdn end/d" /etc/hosts
 
   local tmp; tmp="$(mktemp)"
