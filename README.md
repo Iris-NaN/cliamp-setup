@@ -17,6 +17,9 @@ chmod +x cliamp-setup.sh
 > 注：脚本支持 Linux 与 macOS。但 `--cn` 中的「国内 DNS」与「网易 CDN hosts」
 > 两项为 Linux 专属（依赖 systemd-resolved / NetworkManager / `/etc/hosts`），
 > 在 macOS 上会自动跳过并提示手动配置。
+>
+> 下载 cliamp 时会依次尝试：`MIRROR` 镜像 → `ghproxy.net` → `mirror.ghproxy.com` → 直连 GitHub，
+> 任一阵列可用即成功，避免单一镜像 429 导致安装失败。
 
 ## 中国大陆预设 `--cn` 包含
 
@@ -41,7 +44,7 @@ chmod +x cliamp-setup.sh
 | `HIR_RES=1` | 0 | 启用 hi-res 输出 |
 | `PLAYERCTL=1` | 1 | 安装 playerctl 媒体键 |
 | `PROVIDER=netease` | 空 | 启动默认进入的源 |
-| `MIRROR=ghfast.top` | ghfast.top | 下载镜像域名，留空 `""` 直连 GitHub |
+| `MIRROR=ghfast.top` | ghfast.top | 首选下载镜像域名，留空 `""` 直连 GitHub |
 | `USE_YAY=1` | 空（有 yay 时用） | 设 `0` 强制走预编译二进制（AUR 在国内很慢，`--cn` 默认关） |
 
 示例：

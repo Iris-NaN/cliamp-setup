@@ -75,13 +75,37 @@ die() {
   exit 1
 }
 
-gh_url() {
-  local path="$1"
-  if [[ -n "$MIRROR" ]]; then
-    echo "https://${MIRROR}/https://github.com/${path}"
-  else
-    echo "https://github.com/${path}"
-  fi
+# 依次尝试：用户镜像 -> 若干公共镜像 -> 直连 GitHub，返回首个可用的内容
+gh_fetch() {
+  local path="$1" u tmp
+  local urls=()
+  [[ -n "$MIRROR" ]] && urls+=("https://${MIRROR}/https://github.com/${path}")
+  urls+=("https://ghproxy.net/https://github.com/${path}")
+  urls+=("https://mirror.ghproxy.com/https://github.com/${path}")
+  urls+=("https://github.com/${path}")
+  tmp="$(mktemp)"
+  for u in "${urls[@]}"; do
+    if curl -fsSL --retry 2 "$u" -o "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+      cat "$tmp"; rm -f "$tmp"; return 0
+    fi
+  done
+  rm -f "$tmp"; return 1
+}
+
+# 同上，但把内容保存到文件 $1
+gh_download() {
+  local out="$1" path="$2" u
+  local urls=()
+  [[ -n "$MIRROR" ]] && urls+=("https://${MIRROR}/https://github.com/${path}")
+  urls+=("https://ghproxy.net/https://github.com/${path}")
+  urls+=("https://mirror.ghproxy.com/https://github.com/${path}")
+  urls+=("https://github.com/${path}")
+  for u in "${urls[@]}"; do
+    if curl -fL --retry 3 -o "$out" "$u" 2>/dev/null && [[ -s "$out" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 need_sudo() {
@@ -121,9 +145,11 @@ install_cliamp() {
     [[ "$USE_YAY" == "0" && -n "$(command -v yay 2>/dev/null)" ]] &&
       info "已跳过 yay（USE_YAY=0），改用预编译二进制"
     need_sudo
-    [[ -z "$CLIAMP_VER" ]] && CLIAMP_VER="$(curl -fsSL "$(gh_url bjarneo/cliamp/releases/latest)" |
-      grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')"
-    [[ -z "$CLIAMP_VER" ]] && die "无法获取 cliamp 最新版本"
+    if [[ -z "$CLIAMP_VER" ]]; then
+      CLIAMP_VER="$(gh_fetch "bjarneo/cliamp/releases/latest" |
+        grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')" || true
+    fi
+    [[ -z "$CLIAMP_VER" ]] && die "无法获取 cliamp 最新版本（请检查网络或设置 MIRROR=\"\" 直连）"
     info "安装 cliamp v$CLIAMP_VER（预编译二进制）"
     local bin=""
     if [[ "$OS" == "Darwin" ]]; then
@@ -133,10 +159,8 @@ install_cliamp() {
       bin="cliamp-linux-amd64"
       [[ "$(uname -m)" == "aarch64" ]] && bin="cliamp-linux-arm64"
     fi
-    local url="$(gh_url "bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}")"
-    curl -fL --retry 3 -o /tmp/cliamp.tmp "$url" ||
-      { [[ -n "$MIRROR" ]] && curl -fL --retry 3 -o /tmp/cliamp.tmp "https://github.com/bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}"; } ||
-      die "下载 cliamp 失败"
+    gh_download /tmp/cliamp.tmp "bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}" ||
+      die "下载 cliamp 失败（已尝试镜像与直连）"
     sudo install -m 755 /tmp/cliamp.tmp /usr/local/bin/cliamp
     rm -f /tmp/cliamp.tmp
     ok "cliamp 已装到 /usr/local/bin/cliamp"
