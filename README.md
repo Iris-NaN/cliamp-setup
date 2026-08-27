@@ -20,6 +20,7 @@ chmod +x cliamp-setup.sh
 
 ## 中国大陆预设 `--cn` 包含
 
+- 跳过 yay，改用 `ghfast.top` 镜像直下载预编译二进制（AUR 在国内很慢；如需仍用 yay 可 `USE_YAY=1 ./cliamp-setup.sh --cn`）
 - 启用网易云音乐（需提前在浏览器登录 music.163.com）
 - 系统 DNS 改为国内优先（阿里 + 腾讯，1.1.1.1 兜底），并锁定 NetworkManager 不覆盖
 - 网易域名固定到国内 CDN（写入 `/etc/hosts`，可重复运行刷新）
@@ -41,6 +42,7 @@ chmod +x cliamp-setup.sh
 | `PLAYERCTL=1` | 1 | 安装 playerctl 媒体键 |
 | `PROVIDER=netease` | 空 | 启动默认进入的源 |
 | `MIRROR=ghfast.top` | ghfast.top | 下载镜像域名，留空 `""` 直连 GitHub |
+| `USE_YAY=1` | 空（有 yay 时用） | 设 `0` 强制走预编译二进制（AUR 在国内很慢，`--cn` 默认关） |
 
 示例：
 

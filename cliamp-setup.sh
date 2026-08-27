@@ -11,7 +11,8 @@
 #   ./cliamp-setup.sh --cn
 # 该预设等价于：
 #   NETEASE=1 NETEASE_BROWSER=firefox CN_DNS=1 HIR_RES=1 PLAYERCTL=1 \
-#   ./cliamp-setup.sh
+#   USE_YAY=0 ./cliamp-setup.sh
+# （USE_YAY=0 让国内用户跳过慢速 AUR，改用镜像直下载二进制）
 #
 # 也可用环境变量逐项控制：
 #   NETEASE=1           启用网易云音乐（需先在浏览器登录 music.163.com）
@@ -22,6 +23,8 @@
 #   PLAYERCTL=1         安装 playerctl，支持系统媒体键控制
 #   PROVIDER=netease    启动默认进入的源
 #   MIRROR=ghfast.top   下载镜像域名（留空 "" 则直连 GitHub）
+#   USE_YAY=1           允许用 yay 安装（AUR）；设 0 强制走预编译二进制
+#                       （AUR 在国内很慢，--cn 预设默认关闭）
 #
 set -euo pipefail
 
@@ -35,6 +38,7 @@ HIR_RES="${HIR_RES:-0}"      # 是否启用 hi-res 输出
 PLAYERCTL="${PLAYERCTL:-1}"  # 是否安装 playerctl 媒体键
 PROVIDER="${PROVIDER:-}"     # 启动默认源，如 netease
 CLIAMP_VER="${CLIAMP_VER:-}" # 指定版本，留空则取最新
+USE_YAY="${USE_YAY:-}"       # 空=用 yay；设 0 强制预编译二进制（国内更快）
 
 # ===================== 解析参数 =====================
 while [[ $# -gt 0 ]]; do
@@ -45,8 +49,10 @@ while [[ $# -gt 0 ]]; do
     HIR_RES=1
     PLAYERCTL=1
     NETEASE_BROWSER="${NETEASE_BROWSER:-firefox}"
+    : "${USE_YAY:=0}" # AUR 在国内慢，CN 预设默认走预编译二进制
     ;;
   --netease) NETEASE=1 ;;
+  --no-yay) USE_YAY=0 ;;
   --no-playerctl) PLAYERCTL=0 ;;
   --help | -h)
     sed -n '3,40p' "$0"
@@ -107,11 +113,13 @@ install_cliamp() {
     info "cliamp 已安装: $(cliamp --version 2>/dev/null)"
     return
   fi
-  if command -v yay >/dev/null 2>&1; then
+  if [[ "$USE_YAY" != "0" ]] && command -v yay >/dev/null 2>&1; then
     need_sudo
     info "通过 AUR 安装 cliamp-bin（预编译，自带编解码库）"
     yay -S --needed --noconfirm cliamp-bin
   else
+    [[ "$USE_YAY" == "0" && -n "$(command -v yay 2>/dev/null)" ]] &&
+      info "已跳过 yay（USE_YAY=0），改用预编译二进制"
     need_sudo
     [[ -z "$CLIAMP_VER" ]] && CLIAMP_VER="$(curl -fsSL "$(gh_url bjarneo/cliamp/releases/latest)" |
       grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')"
