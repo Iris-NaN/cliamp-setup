@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# cliamp 一键配置脚本（聚焦 Arch Linux）
+# cliamp 一键配置脚本（支持 Linux / macOS）
 #
 # 把 cliamp 终端音乐播放器安装并配置为「开箱即用」：本地播放、网易云
 #（可选）、媒体键控制（可选）、国内 CDN 加速（可选，仅对中国大陆用户有意义）。
@@ -26,33 +26,48 @@
 set -euo pipefail
 
 # ===================== 可配置项（默认值，通用优先） =====================
-MIRROR="${MIRROR:-ghfast.top}"        # 国内下载镜像；留空 "" 则直连
-NETEASE="${NETEASE:-0}"               # 是否启用网易云音乐
+MIRROR="${MIRROR:-ghfast.top}" # 国内下载镜像；留空 "" 则直连
+NETEASE="${NETEASE:-0}"        # 是否启用网易云音乐
 NETEASE_BROWSER="${NETEASE_BROWSER:-firefox}"
-CN_DNS="${CN_DNS:-0}"                 # 是否改系统 DNS 为国内优先
-CN_HOSTS="${CN_HOSTS:-0}"             # 是否把网易域名固定到国内 CDN
-HIR_RES="${HIR_RES:-0}"               # 是否启用 hi-res 输出
-PLAYERCTL="${PLAYERCTL:-1}"           # 是否安装 playerctl 媒体键
-PROVIDER="${PROVIDER:-}"              # 启动默认源，如 netease
-CLIAMP_VER="${CLIAMP_VER:-}"          # 指定版本，留空则取最新
+CN_DNS="${CN_DNS:-0}"        # 是否改系统 DNS 为国内优先
+CN_HOSTS="${CN_HOSTS:-0}"    # 是否把网易域名固定到国内 CDN
+HIR_RES="${HIR_RES:-0}"      # 是否启用 hi-res 输出
+PLAYERCTL="${PLAYERCTL:-1}"  # 是否安装 playerctl 媒体键
+PROVIDER="${PROVIDER:-}"     # 启动默认源，如 netease
+CLIAMP_VER="${CLIAMP_VER:-}" # 指定版本，留空则取最新
 
 # ===================== 解析参数 =====================
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --cn) NETEASE=1; CN_DNS=1; HIR_RES=1; PLAYERCTL=1; NETEASE_BROWSER="${NETEASE_BROWSER:-firefox}";;
-    --netease) NETEASE=1;;
-    --no-playerctl) PLAYERCTL=0;;
-    --help|-h) sed -n '3,40p' "$0"; exit 0;;
-    *) echo "未知参数: $1"; exit 1;;
+  --cn)
+    NETEASE=1
+    CN_DNS=1
+    HIR_RES=1
+    PLAYERCTL=1
+    NETEASE_BROWSER="${NETEASE_BROWSER:-firefox}"
+    ;;
+  --netease) NETEASE=1 ;;
+  --no-playerctl) PLAYERCTL=0 ;;
+  --help | -h)
+    sed -n '3,40p' "$0"
+    exit 0
+    ;;
+  *)
+    echo "未知参数: $1"
+    exit 1
+    ;;
   esac
   shift
 done
 
 # ===================== 基础函数 =====================
-info()  { echo -e "\033[36m[信息]\033[0m $*"; }
-warn()  { echo -e "\033[33m[警告]\033[0m $*"; }
-ok()    { echo -e "\033[32m[完成]\033[0m $*"; }
-die()   { echo -e "\033[31m[错误]\033[0m $*" >&2; exit 1; }
+info() { echo -e "\033[36m[信息]\033[0m $*"; }
+warn() { echo -e "\033[33m[警告]\033[0m $*"; }
+ok() { echo -e "\033[32m[完成]\033[0m $*"; }
+die() {
+  echo -e "\033[31m[错误]\033[0m $*" >&2
+  exit 1
+}
 
 gh_url() {
   local path="$1"
@@ -69,13 +84,22 @@ need_sudo() {
   sudo -v || die "获取 sudo 权限失败"
 }
 
-# ===================== 检测系统（聚焦 Arch / Linux） =====================
+# ===================== 检测系统（Linux / macOS） =====================
 OS="$(uname -s)"
-[[ "$OS" == "Linux" ]] || die "本脚本聚焦 Linux/Arch，当前系统: $OS"
-DISTRO="unknown"
-[[ -f /etc/os-release ]] && . /etc/os-release && DISTRO="${ID:-unknown}"
-[[ "$DISTRO" == "arch" || "$DISTRO" == "archlinux" || "$DISTRO" == "manjaro" ]] \
-  || warn "当前发行版 $DISTRO 非 Arch，将尝试下载预编译二进制兜底"
+case "$OS" in
+Linux)
+  DISTRO="unknown"
+  [[ -f /etc/os-release ]] && . /etc/os-release && DISTRO="${ID:-unknown}"
+  [[ "$DISTRO" == "arch" || "$DISTRO" == "archlinux" || "$DISTRO" == "manjaro" ]] ||
+    warn "当前发行版 $DISTRO 非 Arch，将尝试下载预编译二进制兜底"
+  ;;
+Darwin)
+  warn "检测到 macOS，将使用 brew 与预编译二进制"
+  ;;
+*)
+  die "本脚本仅支持 Linux / macOS，当前系统: $OS"
+  ;;
+esac
 
 # ===================== 安装 cliamp =====================
 install_cliamp() {
@@ -89,14 +113,22 @@ install_cliamp() {
     yay -S --needed --noconfirm cliamp-bin
   else
     need_sudo
-    [[ -z "$CLIAMP_VER" ]] && CLIAMP_VER="$(curl -fsSL "$(gh_url bjarneo/cliamp/releases/latest)" \
-      | grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')"
+    [[ -z "$CLIAMP_VER" ]] && CLIAMP_VER="$(curl -fsSL "$(gh_url bjarneo/cliamp/releases/latest)" |
+      grep -oE '"tag_name": *"v[^"]+"' | head -1 | grep -oE '[0-9.]+')"
     [[ -z "$CLIAMP_VER" ]] && die "无法获取 cliamp 最新版本"
     info "安装 cliamp v$CLIAMP_VER（预编译二进制）"
-    local bin="cliamp-linux-amd64"
-    [[ "$(uname -m)" == "aarch64" ]] && bin="cliamp-linux-arm64"
-    curl -fL --retry 3 -o /tmp/cliamp.tmp "$(gh_url "bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}")" \
-      || die "下载 cliamp 失败"
+    local bin=""
+    if [[ "$OS" == "Darwin" ]]; then
+      bin="cliamp-darwin-amd64"
+      [[ "$(uname -m)" == "arm64" ]] && bin="cliamp-darwin-arm64"
+    else
+      bin="cliamp-linux-amd64"
+      [[ "$(uname -m)" == "aarch64" ]] && bin="cliamp-linux-arm64"
+    fi
+    local url="$(gh_url "bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}")"
+    curl -fL --retry 3 -o /tmp/cliamp.tmp "$url" ||
+      { [[ -n "$MIRROR" ]] && curl -fL --retry 3 -o /tmp/cliamp.tmp "https://github.com/bjarneo/cliamp/releases/download/v${CLIAMP_VER}/${bin}"; } ||
+      die "下载 cliamp 失败"
     sudo install -m 755 /tmp/cliamp.tmp /usr/local/bin/cliamp
     rm -f /tmp/cliamp.tmp
     ok "cliamp 已装到 /usr/local/bin/cliamp"
@@ -104,23 +136,27 @@ install_cliamp() {
 }
 
 # ===================== 依赖 =====================
+install_pkg() {
+  if command -v pacman >/dev/null 2>&1; then
+    need_sudo; sudo pacman -S --needed --noconfirm "$@"
+  elif command -v brew >/dev/null 2>&1; then
+    brew install "$@"
+  elif command -v apt-get >/dev/null 2>&1; then
+    need_sudo; sudo apt-get install -y "$@"
+  elif command -v dnf >/dev/null 2>&1; then
+    need_sudo; sudo dnf install -y "$@"
+  else
+    warn "未检测到已知包管理器，请手动安装: $*"
+  fi
+}
+
 install_deps() {
   info "安装可选依赖 ffmpeg / yt-dlp"
-  if command -v pacman >/dev/null 2>&1; then
-    need_sudo
-    sudo pacman -S --needed --noconfirm ffmpeg yt-dlp
-  else
-    warn "未检测到 pacman，请手动安装 ffmpeg 与 yt-dlp"
-  fi
+  install_pkg ffmpeg yt-dlp
 
   if [[ "$PLAYERCTL" == "1" ]]; then
-    if command -v pacman >/dev/null 2>&1; then
-      need_sudo
-      info "安装 playerctl（系统媒体键控制）"
-      sudo pacman -S --needed --noconfirm playerctl
-    else
-      warn "未检测到 pacman，请手动安装 playerctl"
-    fi
+    info "安装 playerctl（系统媒体键控制）"
+    install_pkg playerctl
   fi
 }
 
@@ -136,6 +172,8 @@ check_audio() {
     if ! pacman -Q pipewire-alsa >/dev/null 2>&1 && ! pacman -Q pulseaudio-alsa >/dev/null 2>&1; then
       warn "建议安装 ALSA 桥接：sudo pacman -S pipewire-alsa"
     fi
+  elif [[ "$OS" == "Darwin" ]]; then
+    ok "macOS 使用系统音频，无需额外桥接"
   fi
 }
 
@@ -171,11 +209,11 @@ write_config() {
       echo "enabled = true"
       echo "cookies_from = \"$NETEASE_BROWSER\""
     fi
-  } > "$dir/config.toml"
+  } >"$dir/config.toml"
 
   if [[ ! -f "$dir/radios.toml" ]]; then
     info "写入示例电台: $dir/radios.toml"
-    cat > "$dir/radios.toml" <<'EOF'
+    cat >"$dir/radios.toml" <<'EOF'
 # 自定义电台：按 R 打开电台浏览器时会与内置电台一起显示
 [[station]]
 name = "SomaFM Groove Salad"
@@ -207,20 +245,21 @@ write_ytdlp_config() {
     echo "--retries 10"
     echo "--socket-timeout 15"
     echo "--retry-sleep 2"
-  } > "$dir/config"
+  } >"$dir/config"
 }
 
 # ===================== 国内 DNS =====================
 setup_cn_dns() {
   [[ "$CN_DNS" != "1" ]] && return
+  [[ "$OS" == "Darwin" ]] && { warn "macOS 不支持自动切换系统 DNS，请在系统设置中手动配置"; return; }
   need_sudo
   info "将系统 DNS 改为国内优先（阿里 + 腾讯，1.1.1.1 兜底）"
   [[ -f /etc/resolv.conf ]] && sudo cp /etc/resolv.conf /etc/resolv.conf.bak.$(date +%s)
 
   if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
     sudo mkdir -p /etc/systemd/resolved.conf.d
-    printf '[Resolve]\nDNS=223.5.5.5 119.29.29.29 1.1.1.1\nDNSDefault=223.5.5.5\n' \
-      | sudo tee /etc/systemd/resolved.conf.d/cliamp.conf >/dev/null
+    printf '[Resolve]\nDNS=223.5.5.5 119.29.29.29 1.1.1.1\nDNSDefault=223.5.5.5\n' |
+      sudo tee /etc/systemd/resolved.conf.d/cliamp.conf >/dev/null
     sudo systemctl restart systemd-resolved
   elif systemctl is-active --quiet NetworkManager 2>/dev/null; then
     sudo mkdir -p /etc/NetworkManager/conf.d
@@ -236,24 +275,30 @@ setup_cn_dns() {
 # ===================== 国内 hosts 固定 =====================
 setup_cn_hosts() {
   [[ "$CN_HOSTS" != "1" ]] && return
+  [[ "$OS" == "Darwin" ]] && { warn "macOS 不支持自动写入网易 CDN hosts，已跳过"; return; }
   need_sudo
+  command -v python3 >/dev/null 2>&1 || die "解析网易 CDN 需要 python3，请先安装"
   info "把网易域名固定到国内 CDN（写入 /etc/hosts，带可更新标记）"
+  local hosts="/etc/hosts"
+  sudo cp "$hosts" "${hosts}.bak.$(date +%s)"
+
   local domains="music.163.com interface.music.163.com"
   for n in 700 701 702 703 704 705 706 707 708 709 710 800 801 802 803 804 805 806 807 808 809 810 821 851; do
     domains="$domains m${n}.music.126.net"
   done
   domains="$domains p1.music.126.net p2.music.126.net p3.music.126.net p4.music.126.net p5.music.126.net"
 
-  sudo sed -i "/# === cliamp netease cdn/,/# === cliamp netease cdn end/d" /etc/hosts
+  sudo sed -i "/# === cliamp netease cdn/,/# === cliamp netease cdn end/d" "$hosts"
 
-  local tmp; tmp="$(mktemp)"
+  local tmp
+  tmp="$(mktemp)"
   {
     echo ""
     echo "# === cliamp netease cdn ($(date +%F) 生成，可重跑脚本刷新)"
     for d in $domains; do
       local ip=""
-      ip="$(curl -fsS --max-time 6 "https://dns.alidns.com/resolve?name=$d&type=A" \
-            | python3 -c "import json,sys
+      ip="$(curl -fsS --max-time 6 "https://dns.alidns.com/resolve?name=$d&type=A" |
+        python3 -c "import json,sys
 try:
   data=json.load(sys.stdin)
   ips=[a['data'] for a in data.get('Answer',[]) if a['type']==1]
@@ -262,8 +307,8 @@ except: pass" 2>/dev/null)"
       [[ -n "$ip" ]] && echo "$ip $d"
     done
     echo "# === cliamp netease cdn end"
-  } > "$tmp"
-  cat "$tmp" | sudo tee -a /etc/hosts >/dev/null
+  } >"$tmp"
+  cat "$tmp" | sudo tee -a "$hosts" >/dev/null
   rm -f "$tmp"
   ok "/etc/hosts 已更新网易国内 CDN 条目"
 }

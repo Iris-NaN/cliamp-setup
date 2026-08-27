@@ -14,6 +14,10 @@ chmod +x cliamp-setup.sh
 ./cliamp-setup.sh --cn      # 中国大陆用户一键预设
 ```
 
+> 注：脚本支持 Linux 与 macOS。但 `--cn` 中的「国内 DNS」与「网易 CDN hosts」
+> 两项为 Linux 专属（依赖 systemd-resolved / NetworkManager / `/etc/hosts`），
+> 在 macOS 上会自动跳过并提示手动配置。
+
 ## 中国大陆预设 `--cn` 包含
 
 - 启用网易云音乐（需提前在浏览器登录 music.163.com）
