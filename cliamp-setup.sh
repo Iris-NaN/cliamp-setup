@@ -76,6 +76,7 @@ die() {
 }
 
 # 依次尝试：用户镜像 -> 若干公共镜像 -> 直连 GitHub，返回首个可用的内容
+CURL_OPT=(-fsSL --connect-timeout 10 --max-time 60)
 gh_fetch() {
   local path="$1" u tmp
   local urls=()
@@ -85,7 +86,8 @@ gh_fetch() {
   urls+=("https://github.com/${path}")
   tmp="$(mktemp)"
   for u in "${urls[@]}"; do
-    if curl -fsSL --retry 2 "$u" -o "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+    info "尝试下载源: $u"
+    if curl "${CURL_OPT[@]}" "$u" -o "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
       cat "$tmp"; rm -f "$tmp"; return 0
     fi
   done
@@ -101,7 +103,8 @@ gh_download() {
   urls+=("https://mirror.ghproxy.com/https://github.com/${path}")
   urls+=("https://github.com/${path}")
   for u in "${urls[@]}"; do
-    if curl -fL --retry 3 -o "$out" "$u" 2>/dev/null && [[ -s "$out" ]]; then
+    info "尝试下载源: $u"
+    if curl "${CURL_OPT[@]}" -o "$out" "$u" 2>/dev/null && [[ -s "$out" ]]; then
       return 0
     fi
   done
