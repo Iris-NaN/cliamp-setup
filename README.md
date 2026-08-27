@@ -44,7 +44,7 @@ chmod +x cliamp-setup.sh
 | `HIR_RES=1` | 0 | 启用 hi-res 输出 |
 | `PLAYERCTL=1` | 1 | 安装 playerctl 媒体键 |
 | `PROVIDER=netease` | 空 | 启动默认进入的源 |
-| `MIRROR=ghfast.top` | ghfast.top | 首选下载镜像域名，留空 `""` 直连 GitHub |
+| `MIRROR=github.dpik.top` | github.dpik.top | 首选下载镜像域名，留空 `""` 直连 GitHub |
 | `USE_YAY=1` | 空（有 yay 时用） | 设 `0` 强制走预编译二进制（AUR 在国内很慢，`--cn` 默认关） |
 
 示例：

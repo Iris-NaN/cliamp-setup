@@ -22,14 +22,14 @@
 #   HIR_RES=1           启用 hi-res 输出（96kHz / 32bit 浮点）
 #   PLAYERCTL=1         安装 playerctl，支持系统媒体键控制
 #   PROVIDER=netease    启动默认进入的源
-#   MIRROR=ghfast.top   下载镜像域名（留空 "" 则直连 GitHub）
+#   MIRROR=github.dpik.top   下载镜像域名（留空 "" 则直连 GitHub）
 #   USE_YAY=1           允许用 yay 安装（AUR）；设 0 强制走预编译二进制
 #                       （AUR 在国内很慢，--cn 预设默认关闭）
 #
 set -euo pipefail
 
 # ===================== 可配置项（默认值，通用优先） =====================
-MIRROR="${MIRROR:-ghfast.top}" # 国内下载镜像；留空 "" 则直连
+MIRROR="${MIRROR:-github.dpik.top}" # 国内下载镜像；留空 "" 则直连
 NETEASE="${NETEASE:-0}"        # 是否启用网易云音乐
 NETEASE_BROWSER="${NETEASE_BROWSER:-firefox}"
 CN_DNS="${CN_DNS:-0}"        # 是否改系统 DNS 为国内优先
