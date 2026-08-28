@@ -142,7 +142,10 @@ install_cliamp() {
   fi
   if [[ "$USE_YAY" != "0" ]] && command -v yay >/dev/null 2>&1; then
     need_sudo
-    info "通过 AUR 安装 cliamp-bin（预编译，自带编解码库）"
+    info "通过 AUR 安装 cliamp-bin（预编译，自带编解码库，免 Go 编译）"
+    # 若用户改投源码包 cliamp，构建时需拉取 Go 模块，提前设国内 GOPROXY 避免被墙超时
+    export GOPROXY="https://goproxy.cn,https://proxy.golang.org,direct"
+    export GOFLAGS="${GOFLAGS:-} -mod=mod"
     yay -S --needed --noconfirm cliamp-bin
   else
     [[ "$USE_YAY" == "0" && -n "$(command -v yay 2>/dev/null)" ]] &&

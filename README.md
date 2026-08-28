@@ -20,6 +20,10 @@ chmod +x cliamp-setup.sh
 >
 > 下载 cliamp 时会依次尝试：`MIRROR` 镜像 → `ghproxy.net` → `mirror.ghproxy.com` → 直连 GitHub，
 > 任一阵列可用即成功，避免单一镜像 429 导致安装失败。
+>
+> 注意：`--cn` 默认走 `cliamp-bin`（官方预编译二进制），**不编译**、不会拉取 Go 模块，
+> 因此不受 `proxy.golang.org` 被墙影响。若你手动 `yay -S cliamp`（源码包）在 CN 编译超时，
+> 请改用 `cliamp-bin`，或先 `export GOPROXY=https://goproxy.cn,direct` 再编译。
 
 ## 中国大陆预设 `--cn` 包含
 
